@@ -1,0 +1,7 @@
+# Project-local ignore
+.gradle/
+**/build/
+.idea/
+*.iml
+local.properties
+.DS_Store
