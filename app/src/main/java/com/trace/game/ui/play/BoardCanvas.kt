@@ -34,6 +34,7 @@ import com.trace.game.domain.Board
 import com.trace.game.domain.Cell
 import com.trace.game.domain.Grid
 import com.trace.game.domain.formatExp
+import com.trace.game.domain.neighbors8
 import com.trace.game.ui.theme.Ink
 import com.trace.game.ui.theme.LocalReduceMotion
 import com.trace.game.ui.theme.PathCopper
@@ -137,7 +138,7 @@ fun BoardCanvas(
                                 break
                             }
 
-                            val cell = nearestCell(change.position, w, h)
+                            val cell = pickDragCell(change.position, last, w, h)
                             if (cell != null && cell != last) {
                                 val from = last
                                 if (from != null) {
@@ -293,6 +294,53 @@ private fun nearestCell(offset: Offset, width: Float, height: Float): Cell? {
     val c = floor(colF + 0.5f).toInt().coerceIn(0, Grid.COLS - 1)
     val r = floor(rowF + 0.5f).toInt().coerceIn(0, Grid.ROWS - 1)
     return Cell.orNull(c, r)
+}
+
+/**
+ * Prefer the tip's 8 neighbors (diagonals included) so diagonal links feel as easy
+ * as cardinal ones. When the finger overshoots, step one neighbor toward the target.
+ */
+private fun pickDragCell(
+    offset: Offset,
+    tip: Cell?,
+    width: Float,
+    height: Float,
+): Cell? {
+    if (tip == null) return nearestCell(offset, width, height)
+    val gap = minOf(width, height) * 0.02f
+    val cellW = (width - gap * (Grid.COLS + 1)) / Grid.COLS
+    val cellH = (height - gap * (Grid.ROWS + 1)) / Grid.ROWS
+    if (cellW <= 0f || cellH <= 0f) return nearestCell(offset, width, height)
+
+    fun centerOf(cell: Cell): Offset = Offset(
+        gap + cell.col * (cellW + gap) + cellW / 2f,
+        gap + cell.row * (cellH + gap) + cellH / 2f,
+    )
+
+    // Radius covers diagonal neighbor centers with slack.
+    val magnetR = kotlin.math.hypot((cellW + gap).toDouble(), (cellH + gap).toDouble()).toFloat() * 0.78f
+
+    var best: Cell? = tip
+    var bestDist = (centerOf(tip) - offset).getDistance()
+    for (n in tip.neighbors8()) {
+        val d = (centerOf(n) - offset).getDistance()
+        if (d < bestDist) {
+            bestDist = d
+            best = n
+        }
+    }
+    if (best != null && bestDist <= magnetR) return best
+
+    val geo = nearestCell(offset, width, height) ?: return tip
+    if (geo == tip || com.trace.game.domain.areAdjacent8(tip, geo)) return geo
+
+    // One step toward far cell — keeps diagonals first-class.
+    val stepCol = (geo.col - tip.col).coerceIn(-1, 1)
+    val stepRow = (geo.row - tip.row).coerceIn(-1, 1)
+    if (stepCol != 0 || stepRow != 0) {
+        return Cell.orNull(tip.col + stepCol, tip.row + stepRow) ?: geo
+    }
+    return geo
 }
 
 private fun cellsBetween(from: Cell, to: Cell): List<Cell> {
