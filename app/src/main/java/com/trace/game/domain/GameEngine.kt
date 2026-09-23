@@ -91,8 +91,17 @@ class GameEngine(
         gems += mergeGems
         if (path.size >= 5) {
             feedback += FeedbackEvent.Combo(path.size, mergeGems)
-        } else if (mergeGems > 0) {
-            // still a gem gain without combo banner
+        }
+
+        // +5 when first reaching each new milestone tier at/above 512 (exp >= 9)
+        val prevMax = state.maxExpEver
+        if (outcome.maxExpEver > prevMax) {
+            for (exp in (prevMax + 1)..outcome.maxExpEver) {
+                if (exp >= MILESTONE_MIN_EXP) {
+                    gems += MILESTONE_GEMS
+                    feedback += FeedbackEvent.MilestoneGems(exp, MILESTONE_GEMS)
+                }
+            }
         }
 
         if (result >= goalExp) {
@@ -202,6 +211,9 @@ class GameEngine(
         const val ALIGN_COST = 40
         const val ALIGN_COUNT = 3
         const val LEVEL_CLEAR_GEMS = 10
+        const val MILESTONE_MIN_EXP = 9 // 512
+        const val MILESTONE_GEMS = 5
+        const val STARTING_GEMS = 100
 
         fun newGameState(random: Random = Random.Default): RunState {
             val board = Board()
@@ -220,7 +232,6 @@ class GameEngine(
             )
         }
 
-        const val STARTING_GEMS = 100
 
         /** noMoves when no two 8-adjacent occupied cells share the same exp. */
         fun detectNoMoves(board: Board): Boolean {

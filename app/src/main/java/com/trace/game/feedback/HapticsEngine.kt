@@ -38,6 +38,7 @@ class HapticsEngine(context: Context) {
                 is FeedbackEvent.Combo -> comboPulse(e.pathLen)
                 is FeedbackEvent.LevelUp -> celebrate()
                 is FeedbackEvent.ShatterUsed, is FeedbackEvent.AlignUsed -> powerPulse()
+                is FeedbackEvent.MilestoneGems -> pulse(18, 90)
                 FeedbackEvent.NoMoves -> pulse(25, 60)
                 is FeedbackEvent.Spawned -> { /* silent */ }
             }

@@ -190,8 +190,8 @@ class GameEngineTest {
         assertEquals(10, levelUp.gemsGained)
         assertEquals(2, result.state.level)
         assertEquals(10, result.state.goalExp)
-        // +1 merge gem + 10 level-clear gems
-        assertEquals(11, result.state.gems)
+        // +1 merge + 5 milestone (first 512) + 10 level-clear
+        assertEquals(16, result.state.gems)
     }
 
     @Test
@@ -220,6 +220,25 @@ class GameEngineTest {
             assertEquals(Tile(4), result.state.board[cell])
         }
         assertEquals(0, result.state.gems)
+    }
+
+
+    @Test
+    fun milestone_awardsGemsWhenCrossing512() {
+        val board = fillBoard(1)
+        // Two exp-8 tiles merge to exp-9 (512) — first milestone
+        board[0, 7] = Tile(8)
+        board[1, 7] = Tile(8)
+        val engine = engineWith(board, gems = 0, level = 1)
+        // Pretend max was below 512
+        engine.replaceState(engine.state.copy(maxExpEver = 8, gems = 0, goalExp = 20))
+        engine.apply(InputEvent.Down(Cell(0, 7)))
+        engine.apply(InputEvent.Move(Cell(1, 7)))
+        val result = engine.apply(InputEvent.Up)
+        val mile = result.feedback.filterIsInstance<FeedbackEvent.MilestoneGems>()
+        assertTrue(mile.isNotEmpty())
+        assertEquals(9, mile.first().exp)
+        assertEquals(5, mile.first().gemsGained)
     }
 
     @Test

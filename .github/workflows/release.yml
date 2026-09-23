@@ -56,17 +56,17 @@ jobs:
       - name: Publish GitHub Release (sideload)
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: sideload
-          name: TRACE sideload APK
+          tag_name: sideload-${{ github.run_number }}
+          name: TRACE sideload #${{ github.run_number }}
           body: |
             ## Install on your phone
 
-            1. On your Android phone, open this release page
-            2. Download **TRACE-latest.apk** (or the versioned file)
+            1. On your Android phone, open this release page (or the repo **Releases** → Latest)
+            2. Download **TRACE-latest.apk**
             3. If prompted, allow install from the browser / Files
             4. Tap Install → Open TRACE
 
-            Built from `main` @ `${{ github.sha }}` (run #${{ github.run_number }}).
+            Built from `main` @ `${{ github.sha }}`.
 
             Note: signed with the debug key for easy sideload (not Play Store).
           files: |

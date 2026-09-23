@@ -139,6 +139,8 @@ sealed class FeedbackEvent {
     data class ShatterUsed(val cell: Cell) : FeedbackEvent()
     data class AlignUsed(val targetExp: Int, val changed: List<Cell>) : FeedbackEvent()
     data object Rejected : FeedbackEvent()
+    /** First time a power-of-two milestone (512+) is created this run. */
+    data class MilestoneGems(val exp: Int, val gemsGained: Int) : FeedbackEvent()
 }
 
 data class EngineResult(

@@ -1,6 +1,7 @@
 package com.trace.game.ui.play
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
@@ -9,7 +10,10 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -31,6 +35,9 @@ import com.trace.game.ui.theme.Ink
 import com.trace.game.ui.theme.LocalReduceMotion
 import com.trace.game.ui.theme.PathCopper
 import com.trace.game.ui.theme.tileColor
+import kotlin.math.cos
+import kotlin.math.sin
+import kotlin.random.Random
 
 @Composable
 fun BoardCanvas(
@@ -45,16 +52,29 @@ fun BoardCanvas(
 ) {
     val reduce = LocalReduceMotion.current.reduceMotion
     val flash = remember { Animatable(0f) }
+    val burst = remember { Animatable(0f) }
+    var burstCell by remember { mutableStateOf<Cell?>(null) }
+    var burstColor by remember { mutableStateOf(PathCopper) }
+
     LaunchedEffect(mergeFlash) {
         if (mergeFlash == null) {
             flash.snapTo(0f)
-        } else if (reduce) {
+            return@LaunchedEffect
+        }
+        burstCell = mergeFlash
+        burstColor = tileColor(board[mergeFlash]?.exp ?: 1)
+        if (reduce) {
             flash.snapTo(1f)
             flash.snapTo(0f)
+            burst.snapTo(1f)
+            burst.snapTo(0f)
         } else {
             flash.snapTo(0f)
             flash.animateTo(1f, tween(120))
             flash.animateTo(0f, spring())
+            burst.snapTo(0f)
+            burst.animateTo(1f, tween(280, easing = LinearEasing))
+            burst.snapTo(0f)
         }
     }
 
@@ -159,6 +179,27 @@ fun BoardCanvas(
                 color = Color.White.copy(alpha = 0.35f),
                 style = Stroke(width = cellW * 0.06f, cap = StrokeCap.Round, join = StrokeJoin.Round),
             )
+        }
+
+        // Merge burst shards
+        val bc = burstCell
+        val t = burst.value
+        if (bc != null && t > 0f && t < 1f && !reduce) {
+            val center = cellCenter(bc)
+            val shards = 14
+            val rnd = Random(bc.col * 31 + bc.row)
+            for (i in 0 until shards) {
+                val angle = (i / shards.toFloat()) * Math.PI.toFloat() * 2f + rnd.nextFloat()
+                val dist = cellW * (0.4f + t * 1.2f)
+                val px = center.x + cos(angle) * dist
+                val py = center.y + sin(angle) * dist
+                val shard = cellW * 0.12f * (1f - t)
+                drawRect(
+                    color = burstColor.copy(alpha = 1f - t),
+                    topLeft = Offset(px - shard / 2f, py - shard / 2f),
+                    size = Size(shard, shard),
+                )
+            }
         }
     }
 }

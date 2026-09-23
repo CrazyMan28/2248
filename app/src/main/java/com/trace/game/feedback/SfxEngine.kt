@@ -62,6 +62,7 @@ class SfxEngine(context: Context) {
                     play("gem")
                 }
                 is FeedbackEvent.ShatterUsed, is FeedbackEvent.AlignUsed -> play("power")
+                is FeedbackEvent.MilestoneGems -> play("gem")
                 FeedbackEvent.NoMoves -> play("fail")
                 is FeedbackEvent.Spawned -> { /* silent */ }
             }
