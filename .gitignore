@@ -1,7 +1,14 @@
-# Project-local ignore
 .gradle/
 **/build/
 .idea/
 *.iml
 local.properties
 .DS_Store
+.kotlin/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+.cxx/
+*.hprof

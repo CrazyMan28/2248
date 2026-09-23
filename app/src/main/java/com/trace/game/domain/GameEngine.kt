@@ -29,6 +29,15 @@ class GameEngine(
         return EngineResult(state, feedback.toList())
     }
 
+    /** Replace gems without resetting the board (wallet sync from prefs). */
+    fun setGems(gems: Int) {
+        state = state.copy(gems = gems.coerceAtLeast(0))
+    }
+
+    fun replaceState(newState: RunState) {
+        state = newState
+    }
+
     private fun onDown(cell: Cell, feedback: MutableList<FeedbackEvent>) {
         if (state.noMoves) {
             feedback += FeedbackEvent.Rejected
@@ -77,10 +86,13 @@ class GameEngine(
 
         feedback += FeedbackEvent.MergeCommitted(result, path, outcome.resultCell)
 
+        // +1 gem per merge, plus floor(pathLen/5) combo bonus
+        val mergeGems = 1 + path.size / 5
+        gems += mergeGems
         if (path.size >= 5) {
-            val gained = 1 + path.size / 5
-            gems += gained
-            feedback += FeedbackEvent.Combo(path.size, gained)
+            feedback += FeedbackEvent.Combo(path.size, mergeGems)
+        } else if (mergeGems > 0) {
+            // still a gem gain without combo banner
         }
 
         if (result >= goalExp) {
@@ -199,7 +211,7 @@ class GameEngine(
             return RunState(
                 board = board,
                 path = emptyList(),
-                gems = 0,
+                gems = STARTING_GEMS,
                 level = 1,
                 goalExp = RunState.LEVEL_1_GOAL_EXP,
                 minSpawnExp = SpawnPool.retire(minSpawn, maxEver),
@@ -207,6 +219,8 @@ class GameEngine(
                 noMoves = detectNoMoves(board),
             )
         }
+
+        const val STARTING_GEMS = 100
 
         /** noMoves when no two 8-adjacent occupied cells share the same exp. */
         fun detectNoMoves(board: Board): Boolean {

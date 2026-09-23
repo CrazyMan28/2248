@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="trace_deep">#061820</color>
+    <color name="trace_mid">#0C2A36</color>
+    <color name="ic_launcher_background">#0C2A36</color>
+</resources>

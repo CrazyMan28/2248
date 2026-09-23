@@ -190,7 +190,8 @@ class GameEngineTest {
         assertEquals(10, levelUp.gemsGained)
         assertEquals(2, result.state.level)
         assertEquals(10, result.state.goalExp)
-        assertEquals(10, result.state.gems)
+        // +1 merge gem + 10 level-clear gems
+        assertEquals(11, result.state.gems)
     }
 
     @Test
