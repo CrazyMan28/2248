@@ -35,6 +35,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.trace.game.domain.GameEngine
+import com.trace.game.domain.MergeResolver
 import com.trace.game.ui.components.GemBalance
 import com.trace.game.ui.theme.BgDeep
 import com.trace.game.ui.theme.BgLift
@@ -45,6 +46,7 @@ import com.trace.game.ui.theme.Ink
 import com.trace.game.ui.theme.InkDim
 import com.trace.game.ui.theme.Lock
 import com.trace.game.ui.theme.TraceTypography
+import androidx.compose.runtime.remember
 
 @Composable
 fun PlayScreen(
@@ -53,6 +55,13 @@ fun PlayScreen(
 ) {
     val state by vm.runState.collectAsState()
     val ui by vm.playUi.collectAsState()
+    val previewExp = remember(state.path, state.board) {
+        if (state.path.size >= 2) {
+            runCatching { MergeResolver.resultExpForPath(state.board, state.path) }.getOrNull()
+        } else {
+            null
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -87,7 +96,14 @@ fun PlayScreen(
                 goalExp = state.goalExp,
             )
 
-            Spacer(Modifier.height(12.dp))
+            Spacer(Modifier.height(6.dp))
+
+            PathPreviewBar(
+                previewExp = previewExp,
+                pathLen = state.path.size,
+            )
+
+            Spacer(Modifier.height(8.dp))
 
             Box(modifier = Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 BoardCanvas(
