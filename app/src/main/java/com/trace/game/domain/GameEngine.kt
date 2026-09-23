@@ -84,7 +84,14 @@ class GameEngine(
         var level = state.level
         var goalExp = state.goalExp
 
-        feedback += FeedbackEvent.MergeCommitted(result, path, outcome.resultCell)
+        feedback += FeedbackEvent.MergeCommitted(
+            resultExp = result,
+            path = path,
+            lastCell = outcome.resultCell,
+            cleared = path,
+            gravityMoves = outcome.gravityMoves,
+            spawned = outcome.spawnedCells,
+        )
 
         // +1 gem per merge, plus floor(pathLen/5) combo bonus
         val mergeGems = 1 + path.size / 5

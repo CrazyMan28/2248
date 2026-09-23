@@ -19,7 +19,6 @@ object MergeResolver {
             counts[e] = (counts[e] ?: 0) + 1
         }
         var e = counts.firstKey()
-        // Process ascending; carries may create keys above the original max.
         while (true) {
             val c = counts[e] ?: 0
             if (c >= 2) {
@@ -42,13 +41,6 @@ object MergeResolver {
         return resultExp(exps)
     }
 
-    /**
-     * Clears all path cells, places a [Tile] of [resultExp] on the last cell,
-     * applies gravity downward, then spawns into empty cells from the top.
-     *
-     * Returns the mutated board copy, list of newly spawned cells, and updated
-     * (minSpawnExp, maxExpEver) after retirement checks.
-     */
     fun applyMerge(
         board: Board,
         path: List<Cell>,
@@ -65,12 +57,12 @@ object MergeResolver {
         val last = path.last()
         next[last] = Tile(result)
 
-        val resultCell = applyGravity(next, track = last) ?: last
+        val gravity = applyGravity(next, track = last)
+        val resultCell = gravity.tracked ?: last
 
         var minSpawn = minSpawnExp
         var maxEver = maxOf(maxExpEver, result)
-        val retired = SpawnPool.retire(minSpawn, maxEver)
-        minSpawn = retired
+        minSpawn = SpawnPool.retire(minSpawn, maxEver)
 
         val spawned = spawnFill(next, minSpawn, random)
         val boardMax = next.maxExpOrNull() ?: maxEver
@@ -82,6 +74,7 @@ object MergeResolver {
             resultExp = result,
             lastCell = last,
             resultCell = resultCell,
+            gravityMoves = gravity.moves,
             spawnedCells = spawned,
             minSpawnExp = minSpawn,
             maxExpEver = maxEver,
@@ -90,29 +83,35 @@ object MergeResolver {
 
     /**
      * Tiles fall toward higher row indices within each column.
-     * If [track] is set, returns the cell where that tile landed.
+     * Returns where [track] landed (if set) and every from→to slide.
      */
-    fun applyGravity(board: Board, track: Cell? = null): Cell? {
+    fun applyGravity(board: Board, track: Cell? = null): GravityResult {
         var tracked: Cell? = null
+        val moves = ArrayList<Pair<Cell, Cell>>()
         for (c in 0 until Grid.COLS) {
             var writeRow = Grid.ROWS - 1
             for (r in Grid.ROWS - 1 downTo 0) {
                 val tile = board[c, r] ?: continue
                 board[c, r] = null
                 board[c, writeRow] = tile
+                val from = Cell(c, r)
+                val to = Cell(c, writeRow)
+                if (r != writeRow) {
+                    moves += from to to
+                }
                 if (track != null && track.col == c && track.row == r) {
-                    tracked = Cell(c, writeRow)
+                    tracked = to
                 }
                 writeRow--
             }
         }
-        return tracked
+        return GravityResult(tracked = tracked, moves = moves)
     }
 
-    /**
-     * Fills every empty cell by spawning from the top of each column
-     * (empty slots after gravity are a contiguous prefix of rows).
-     */
+    /** Convenience for callers that only need the tracked landing cell. */
+    fun applyGravityTracking(board: Board, track: Cell? = null): Cell? =
+        applyGravity(board, track).tracked
+
     fun spawnFill(
         board: Board,
         minSpawnExp: Int,
@@ -131,11 +130,17 @@ object MergeResolver {
         return spawned
     }
 
+    data class GravityResult(
+        val tracked: Cell?,
+        val moves: List<Pair<Cell, Cell>>,
+    )
+
     data class MergeOutcome(
         val board: Board,
         val resultExp: Int,
         val lastCell: Cell,
         val resultCell: Cell,
+        val gravityMoves: List<Pair<Cell, Cell>>,
         val spawnedCells: List<Cell>,
         val minSpawnExp: Int,
         val maxExpEver: Int,

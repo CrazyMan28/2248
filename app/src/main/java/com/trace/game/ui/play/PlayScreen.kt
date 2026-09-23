@@ -93,7 +93,7 @@ fun PlayScreen(
                 BoardCanvas(
                     board = state.board,
                     path = state.path,
-                    mergeFlash = ui.mergeFlashCell,
+                    mergeFx = ui.mergeFx,
                     dimNonPath = state.path.isNotEmpty(),
                     onDown = vm::onDown,
                     onMove = vm::onMove,
@@ -147,7 +147,7 @@ fun PlayScreen(
                 onRestart = vm::restart,
                 onHome = {
                     vm.resume()
-                    onExitHome()
+                    vm.saveAndExit { onExitHome() }
                 },
             )
         }
