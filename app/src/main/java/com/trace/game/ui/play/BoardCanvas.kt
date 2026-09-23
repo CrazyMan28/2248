@@ -5,7 +5,6 @@ import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
@@ -13,6 +12,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -24,9 +24,13 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.input.pointer.changedToUp
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
 import com.trace.game.domain.Board
 import com.trace.game.domain.Cell
 import com.trace.game.domain.Grid
@@ -36,6 +40,7 @@ import com.trace.game.ui.theme.LocalReduceMotion
 import com.trace.game.ui.theme.PathCopper
 import com.trace.game.ui.theme.tileColor
 import kotlin.math.cos
+import kotlin.math.floor
 import kotlin.math.sin
 import kotlin.random.Random
 
@@ -55,6 +60,11 @@ fun BoardCanvas(
     val burst = remember { Animatable(0f) }
     var burstCell by remember { mutableStateOf<Cell?>(null) }
     var burstColor by remember { mutableStateOf(PathCopper) }
+
+    // Keep latest callbacks without restarting the pointer handler mid-drag.
+    val onDownState = rememberUpdatedState(onDown)
+    val onMoveState = rememberUpdatedState(onMove)
+    val onUpState = rememberUpdatedState(onUp)
 
     LaunchedEffect(mergeFlash) {
         if (mergeFlash == null) {
@@ -93,18 +103,51 @@ fun BoardCanvas(
         modifier = modifier
             .fillMaxWidth()
             .aspectRatio(Grid.COLS.toFloat() / Grid.ROWS.toFloat())
-            .pointerInput(board, path) {
-                detectDragGestures(
-                    onDragStart = { offset ->
-                        cellAt(offset, size.width.toFloat(), size.height.toFloat())?.let(onDown)
-                    },
-                    onDrag = { change, _ ->
+            // IMPORTANT: do NOT key on `path` — that cancels the gesture after the first tile.
+            .pointerInput(Unit) {
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    val w = size.width.toFloat()
+                    val h = size.height.toFloat()
+                    val start = nearestCell(down.position, w, h)
+                    var last: Cell? = start
+                    if (start != null) {
+                        onDownState.value(start)
+                    }
+                    down.consume()
+
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Main)
+                        val change = event.changes.firstOrNull { it.id == down.id }
+                            ?: event.changes.firstOrNull()
+                            ?: break
+
+                        if (change.changedToUp()) {
+                            change.consume()
+                            onUpState.value()
+                            break
+                        }
+
+                        val cell = nearestCell(change.position, w, h)
+                        if (cell != null && cell != last) {
+                            // Walk intermediate cells when the finger jumps (fast swipe).
+                            val from = last
+                            if (from != null) {
+                                for (step in cellsBetween(from, cell)) {
+                                    if (step != last) {
+                                        onMoveState.value(step)
+                                        last = step
+                                    }
+                                }
+                            }
+                            if (cell != last) {
+                                onMoveState.value(cell)
+                                last = cell
+                            }
+                        }
                         change.consume()
-                        cellAt(change.position, size.width.toFloat(), size.height.toFloat())?.let(onMove)
-                    },
-                    onDragEnd = { onUp() },
-                    onDragCancel = { onUp() },
-                )
+                    }
+                }
             },
     ) {
         val gap = size.minDimension * 0.02f
@@ -181,7 +224,6 @@ fun BoardCanvas(
             )
         }
 
-        // Merge burst shards
         val bc = burstCell
         val t = burst.value
         if (bc != null && t > 0f && t < 1f && !reduce) {
@@ -204,11 +246,38 @@ fun BoardCanvas(
     }
 }
 
-private fun cellAt(offset: Offset, width: Float, height: Float): Cell? {
+/**
+ * Hit-test that includes gaps between tiles — maps finger to nearest cell center
+ * so dragging feels continuous instead of dying in the gutters.
+ */
+private fun nearestCell(offset: Offset, width: Float, height: Float): Cell? {
+    if (width <= 0f || height <= 0f) return null
     val gap = minOf(width, height) * 0.02f
     val cellW = (width - gap * (Grid.COLS + 1)) / Grid.COLS
     val cellH = (height - gap * (Grid.ROWS + 1)) / Grid.ROWS
-    val c = ((offset.x - gap) / (cellW + gap)).toInt()
-    val r = ((offset.y - gap) / (cellH + gap)).toInt()
+    if (cellW <= 0f || cellH <= 0f) return null
+
+    val colF = (offset.x - gap - cellW / 2f) / (cellW + gap)
+    val rowF = (offset.y - gap - cellH / 2f) / (cellH + gap)
+    val c = colF.roundToGrid(Grid.COLS)
+    val r = rowF.roundToGrid(Grid.ROWS)
     return Cell.orNull(c, r)
+}
+
+private fun Float.roundToGrid(count: Int): Int =
+    floor(this + 0.5f).toInt().coerceIn(0, count - 1)
+
+/** Bresenham-style cells between [from] and [to], excluding [from], including [to]. */
+private fun cellsBetween(from: Cell, to: Cell): List<Cell> {
+    val dc = to.col - from.col
+    val dr = to.row - from.row
+    val steps = maxOf(kotlin.math.abs(dc), kotlin.math.abs(dr))
+    if (steps <= 1) return listOf(to)
+    val out = ArrayList<Cell>(steps)
+    for (i in 1..steps) {
+        val c = from.col + (dc * i) / steps
+        val r = from.row + (dr * i) / steps
+        Cell.orNull(c, r)?.let { out.add(it) }
+    }
+    return out
 }
