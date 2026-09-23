@@ -31,8 +31,13 @@ fun TraceNavHost(vm: GameViewModel) {
         composable(Routes.Home) {
             HomeScreen(
                 gems = prefs.gems,
-                highExp = prefs.highExp,
+                highExp = maxOf(prefs.highExp, run.maxExpEver),
+                hasSavedRun = prefs.hasSavedRun || run.board.occupiedCells().isNotEmpty(),
                 onPlay = {
+                    vm.enterPlay()
+                    nav.navigate(Routes.Play)
+                },
+                onNewGame = {
                     vm.startNewRun()
                     nav.navigate(Routes.Play)
                 },
@@ -46,7 +51,9 @@ fun TraceNavHost(vm: GameViewModel) {
             PlayScreen(
                 vm = vm,
                 onExitHome = {
-                    nav.popBackStack(Routes.Home, inclusive = false)
+                    vm.saveAndExit {
+                        nav.popBackStack(Routes.Home, inclusive = false)
+                    }
                 },
             )
         }

@@ -53,7 +53,9 @@ import com.trace.game.ui.theme.TraceTypography
 fun HomeScreen(
     gems: Int,
     highExp: Int,
+    hasSavedRun: Boolean,
     onPlay: () -> Unit,
+    onNewGame: () -> Unit,
     onJourney: () -> Unit,
     onShop: () -> Unit,
     onSettings: () -> Unit,
@@ -117,13 +119,25 @@ fun HomeScreen(
                     )
                     Spacer(Modifier.height(28.dp))
                     TraceActionButton(
-                        label = "PLAY",
+                        label = if (hasSavedRun) "CONTINUE" else "PLAY",
                         onClick = {
                             onUiTap()
                             onPlay()
                         },
                         modifier = Modifier.fillMaxWidth(0.85f),
                     )
+                    if (hasSavedRun) {
+                        Spacer(Modifier.height(10.dp))
+                        TraceActionButton(
+                            label = "NEW GAME",
+                            onClick = {
+                                onUiTap()
+                                onNewGame()
+                            },
+                            secondary = true,
+                            modifier = Modifier.fillMaxWidth(0.85f),
+                        )
+                    }
                     TextButton(onClick = {
                         onUiTap()
                         onJourney()

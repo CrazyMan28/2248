@@ -131,6 +131,12 @@ sealed class FeedbackEvent {
         val resultExp: Int,
         val path: List<Cell>,
         val lastCell: Cell,
+        /** Cells cleared by the merge (path minus where result sits before gravity). */
+        val cleared: List<Cell> = emptyList(),
+        /** Gravity slides: from cell → to cell. */
+        val gravityMoves: List<Pair<Cell, Cell>> = emptyList(),
+        /** Fresh tiles that fell in from the top. */
+        val spawned: List<Cell> = emptyList(),
     ) : FeedbackEvent()
     data class Combo(val pathLen: Int, val gemsGained: Int) : FeedbackEvent()
     data class LevelUp(val newLevel: Int, val newGoalExp: Int, val gemsGained: Int) : FeedbackEvent()
